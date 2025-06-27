@@ -1,45 +1,68 @@
-import React, { useEffect, useRef } from 'react'
-import ChatHeader from './ChatHeader'
-import MessageSkeleton from './skeletons/MessageSkeleton';
-import MessageInput from "./MessageInput"
-import { useChatStore } from '../store/useChatStore'
-import { useAuthStore } from '../store/useAuthStore';
-import { formatMessageTime } from "../lib/utils.js"
+import React, { useEffect, useRef } from "react";
+import ChatHeader from "./ChatHeader";
+import MessageSkeleton from "./skeletons/MessageSkeleton";
+import MessageInput from "./MessageInput";
+import { useChatStore } from "../store/useChatStore";
+import { useAuthStore } from "../store/useAuthStore";
+import { formatMessageTime } from "../lib/utils.js";
 
 function ChatContainer() {
+  const {
+    messages,
+    getMessages,
+    isMessagesLoading,
+    selectedUser,
+    subscribeToMessages,
+    unsubscribeToMessages,
+  } = useChatStore();
 
-  const { messages, getMessages, isMessageLoading, selectedUser } = useChatStore();
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
-  useEffect(() => {
-    getMessages(selectedUser._id)
-  }, [selectedUser._id, getMessages])
 
+  // Load messages and subscribe to new ones
+  useEffect(() => {
+    if (!selectedUser?._id) return;
+
+    getMessages(selectedUser._id);
+    subscribeToMessages();
+
+    return () => {
+      unsubscribeToMessages();
+    };
+  }, [selectedUser?._id]);
+
+  // Scroll to latest message when messages change
   useEffect(() => {
     if (messageEndRef.current && messages) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  if (isMessageLoading) return (
-    <div className='flex flex-1 flex-col overflow-auto'>
-      <ChatHeader />
-      <MessageSkeleton />
-      <MessageInput />
-    </div>
-  )
+  if (isMessagesLoading) {
+    return (
+      <div className="flex flex-1 flex-col overflow-auto">
+        <ChatHeader />
+        <MessageSkeleton />
+        <MessageInput />
+      </div>
+    );
+  }
 
   return (
-    <div className='flex flex-1 flex-col overflow-auto'>
+    <div className="flex flex-1 flex-col overflow-auto">
       <ChatHeader />
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 && (
+          <p className="text-center text-gray-500">No messages yet.</p>
+        )}
         {messages.map((message) => (
           <div
             key={message._id}
-            className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"}`}
-            ref={messageEndRef}
+            className={`chat ${
+              message.senderId === authUser._id ? "chat-end" : "chat-start"
+            }`}
           >
-            <div className=" chat-image avatar">
+            <div className="chat-image avatar">
               <div className="size-10 rounded-full border">
                 <img
                   src={
@@ -68,10 +91,12 @@ function ChatContainer() {
             </div>
           </div>
         ))}
+        {/* Scroll target only once at the end */}
+        <div ref={messageEndRef} />
       </div>
       <MessageInput />
     </div>
-  )
+  );
 }
 
-export default ChatContainer
+export default ChatContainer;
